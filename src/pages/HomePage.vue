@@ -43,6 +43,7 @@
 <script setup>
 import { ref } from "vue";
 import ExcelJS from "exceljs";
+import Papa from "papaparse";
 
 const userExcelHeading = ref([
   { title: "User ID", key: "user_id" },
@@ -63,7 +64,7 @@ const userData = ref([
     create_date: "2025/01/07 22:20:48",
   },
   {
-    user_id: "1234",
+    user_id: "6666",
     user_name: "Yen",
     email: "yo@test.com",
     user_type: "User",
@@ -116,6 +117,35 @@ const exportExcel = async () => {
   downloadLink.download = "User.xlsx";
 
   downloadLink.click();
+};
+
+const exportCSV = () => {
+  var tableData = [];
+  var obj = {};
+
+  userData.value.forEach((data) => {
+    userExcelHeading.value.forEach((header) => {
+      obj[header.title] = `${data[header.key]}\t`;
+    });
+    tableData.push(obj);
+    obj = {};
+  });
+
+  const csvData = Papa.unparse({
+    fields: userExcelHeading.value.title,
+    data: tableData,
+  });
+  const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+  const anchor = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+
+  anchor.setAttribute("href", url);
+  anchor.setAttribute("download", "User.csv");
+
+  anchor.click();
+
+  URL.revokeObjectURL(url);
+  anchor.remove();
 };
 </script>
 
