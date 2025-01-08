@@ -33,8 +33,27 @@
           </div>
         </div>
         <div class="bottom">
-          <button class="import-btn" @click="importExcel()">Import File</button>
+          <button class="import-btn" @click="fileInput.click">
+            Import Excel File
+          </button>
+          <button class="import-btn" @click="csvFileInput.click">
+            Import CSV File
+          </button>
         </div>
+        <input
+          style="visibility: hidden"
+          type="file"
+          ref="fileInput"
+          accept=".xlsx, .xls"
+          @change="importExcel"
+        />
+        <input
+          style="visibility: hidden"
+          type="file"
+          ref="csvFileInput"
+          accept=".csv"
+          @change="importCSV"
+        />
       </div>
     </section>
   </div>
@@ -42,8 +61,13 @@
 
 <script setup>
 import { ref } from "vue";
+import dayjs from "dayjs";
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
+
+const fileInput = ref(null);
+const csvFileInput = ref(null);
 
 const userExcelHeading = ref([
   { title: "User ID", key: "user_id" },
@@ -125,7 +149,7 @@ const exportCSV = () => {
 
   userData.value.forEach((data) => {
     userExcelHeading.value.forEach((header) => {
-      obj[header.title] = `${data[header.key]}\t`;
+      obj[header.title] = `${data[header.key]}`;
     });
     tableData.push(obj);
     obj = {};
@@ -146,6 +170,81 @@ const exportCSV = () => {
 
   URL.revokeObjectURL(url);
   anchor.remove();
+};
+
+const importExcel = (event) => {
+  const file = event.target.files[0];
+
+  if (!file || !file.name.match(/\.(xlsx|xls)$/)) {
+    return; // If the file format is wrong, return directly
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+
+    // Read the first Sheet
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    // Parse into JSON
+    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    const processedData = [];
+
+    for (let i = 1; i < jsonData.length; i++) {
+      const row = jsonData[i];
+
+      if (row[0] && row[1]) {
+        const user = {
+          user_id: row[0],
+          user_name: row[1],
+          email: row[2],
+          user_type: row[3] ? row[3] : "User",
+          gender: row[4] ? row[4] : "Male",
+          create_date: dayjs().format("YYYY/MM/DD HH:mm:ss"),
+        };
+
+        processedData.push(user);
+      }
+    }
+
+    importedUserData.value = processedData;
+  };
+
+  reader.readAsArrayBuffer(file); // Read the file as binary data
+};
+
+const importCSV = (event) => {
+  const file = event.target.files[0];
+
+  if (!file || !file.name.match(/\.(csv)$/)) {
+    return; // If the file format is wrong, return directly
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    const csvData = Papa.parse(e.target.result, {
+      header: true,
+      skipEmptyLines: true,
+    });
+
+    const processedData = csvData.data.map((row) => ({
+      user_id: row["User ID"],
+      user_name: row["User Name"],
+      email: row["Email"],
+      user_type: row["User Type"] ? row["User Type"] : "User",
+      gender: row["Gender"] ? row["Gender"] : "Male",
+      create_date: dayjs().format("YYYY/MM/DD HH:mm:ss"),
+    }));
+
+    importedUserData.value = processedData;
+  };
+
+  reader.readAsText(file); // Read the file as text
 };
 </script>
 
